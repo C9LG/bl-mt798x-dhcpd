@@ -137,7 +137,7 @@ UBOOT_CFG_MULTILAYOUT_SOURCE="${SOC}_${BOARD}_multi_layout_defconfig"
 # Backup the configuration files in sources
 ATF_CFG="${ATF_CFG:-$ATF_CFG_SOURCE}"
 UBOOT_CFG="${UBOOT_CFG:-$UBOOT_CFG_SOURCE}"
-UBOOT_CFG_MULTILAYOUT="${UBOUBOOT_CFG_MULTILAYOUT:-$UBOOT_CFG_MULTILAYOUT_SOURCE}"
+UBOOT_CFG_MULTILAYOUT="${UBOOT_CFG_MULTILAYOUT:-$UBOOT_CFG_MULTILAYOUT_SOURCE}"
 
 # ATF Config Path
 ATF_CFG_PATH_DEFAULT="$ATF_DIR/$CONFIGS_DIR_DEFAULT/$ATF_CFG"
@@ -159,10 +159,10 @@ if [ "$VARIANT" = "default" ] || [ "$VARIANT" = "DEFAULT" ]; then
 	fi
 	if [ "$multilayout" = "1" ] && [ ! -f "$UBOOT_CFG_PATH" ]; then
 		echo "Warning: Multi layout config not found, will fallback to single-layout.(Y/n):"
-		if [ "$SLIENT" != "Y" ]; then
+		if [ "$SILENT" != "Y" ]; then
 			read answer
 		fi
-		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SLIENT" = "Y" ]; then
+		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SILENT" = "Y" ]; then
 			multilayout=0
 			UBOOT_CFG_PATH=$UBOOT_CFG_PATH_DEFAULT
 		else
@@ -175,10 +175,10 @@ elif [ "$VARIANT" = "ubootmod" ] || [ "$VARIANT" = "UBOOTMOD" ]; then
 	UBOOT_CFG_PATH=$UBOOT_CFG_PATH_FIT
 	if [ "$multilayout" = "1" ]; then
 		echo "Warning: No multi layout with ubootmod variant, will disabled it.(Y/n):"
-		if [ "$SLIENT" != "Y" ]; then
+		if [ "$SILENT" != "Y" ]; then
 			read answer
 		fi
-		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SLIENT" = "Y" ]; then
+		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SILENT" = "Y" ]; then
 			multilayout=0
 		else
 			echo "Canceled."
@@ -192,10 +192,10 @@ elif [ "$VARIANT" = "nonmbm" ] || [ "$VARIANT" = "NONMBM" ]; then
 	fi
 	if [ "$multilayout" = "1" ] && [ ! -f "$UBOOT_CFG_PATH" ]; then
 		echo "Warning: Multi layout config not found, fallback to single-layout.(Y/n):"
-		if [ "$SLIENT" != "Y" ]; then
+		if [ "$SILENT" != "Y" ]; then
 			read answer
 		fi
-		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SLIENT" = "Y" ]; then
+		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SILENT" = "Y" ]; then
 			multilayout=0
 			UBOOT_CFG_PATH=$UBOOT_CFG_PATH_NONMBM
 		else
@@ -268,10 +268,23 @@ if [ -e "$ATF_DIR/makefile" ]; then
 else
 	ATF_MKFILE="Makefile"
 fi
+
+ATF_CFG_TARGET="$ATF_CFG"
+ATF_CFG_STAGE_FILE=""
+if [ "$ATF_CFG_PATH" != "$ATF_CFG_PATH_DEFAULT" ]; then
+	ATF_CFG_TARGET="__variant_${SOC}_${BOARD}_defconfig"
+	ATF_CFG_STAGE_FILE="$ATF_DIR/$CONFIGS_DIR_DEFAULT/$ATF_CFG_TARGET"
+	cp -f "$ATF_CFG_PATH" "$ATF_CFG_STAGE_FILE"
+	echo "Staged ATF config: $ATF_CFG_PATH -> $ATF_CFG_STAGE_FILE"
+fi
+
 make -C "$ATF_DIR" -f "$ATF_MKFILE" clean CONFIG_CROSS_COMPILER="$TOOLCHAIN" CROSS_COMPILER="$TOOLCHAIN"
 rm -rf "$ATF_DIR/build"
-make -C "$ATF_DIR" -f "$ATF_MKFILE" "$ATF_CFG" CONFIG_CROSS_COMPILER="$TOOLCHAIN" CROSS_COMPILER="$TOOLCHAIN"
+make -C "$ATF_DIR" -f "$ATF_MKFILE" "$ATF_CFG_TARGET" CONFIG_CROSS_COMPILER="$TOOLCHAIN" CROSS_COMPILER="$TOOLCHAIN"
 make -C "$ATF_DIR" -f "$ATF_MKFILE" all CONFIG_CROSS_COMPILER="$TOOLCHAIN" CROSS_COMPILER="$TOOLCHAIN" CONFIG_BL33="../$UBOOT_DIR/u-boot.bin" BL33="../$UBOOT_DIR/u-boot.bin" -j $(nproc)
+if [ -n "$ATF_CFG_STAGE_FILE" ] && [ -f "$ATF_CFG_STAGE_FILE" ]; then
+	rm -f "$ATF_CFG_STAGE_FILE"
+fi
 
 mkdir -p "output"
 if [ -f "$ATF_DIR/build/${SOC}/release/fip.bin" ]; then

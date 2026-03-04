@@ -52,7 +52,7 @@ on:
           - multi_layout
           - dis_fixed_mtdparts
       GEN_BL2:
-        description: 'Generate BL2 binary(v22/23 ATF only)'
+        description: 'Generate BL2 binary(v22/23 only)'
         required: false
         default: false
         type: boolean
@@ -69,6 +69,7 @@ on:
         description: 'Free up disk space(build environment)'
         required: false
         default: 'false'
+        type: boolean
       pub_release:
         description: 'Publish to GitHub Release'
         required: false
@@ -305,6 +306,7 @@ jobs:
             2024) echo "${{ env.atf24 }}" "${{ env.uboot23 }}" ;;
             2025) echo "${{ env.atf25 }}" "${{ env.uboot25 }}" ;;
             2026) echo "${{ env.atf26 }}" "${{ env.uboot26 }}" ;;
+            SP1) echo "${{ env.atf24 }}" "${{ env.uboot25 }}" ;;
             *) echo "" "" ;;
           esac
         }
@@ -678,7 +680,6 @@ jobs:
         echo "- 使用分支: ${{ env.REPO_BRANCH }}" >> release.txt
         echo "- 使用版本: ${{ github.event.inputs.FIP_VERSION }}" >> release.txt
 
-        echo "- 变体（仅2025/2026生效）: ${{ github.event.inputs.VARIANT }}" >> release.txt
         echo "- 额外选项: ${{ github.event.inputs.EXTRA_OPTION }}" >> release.txt
 
         if [ "${{ github.event.inputs.VARIANT }}" = "nonmbm" ]; then
@@ -702,10 +703,10 @@ jobs:
           if echo "$CUSTOM_IP"; then
             echo "- 已应用特殊网段: $CUSTOM_IP" >> release.txt
           else
-            echo "- 特殊网段输入无效，已保持默认网段192.168.1.1" >> release.txt
+            echo "- 特殊网段输入无效，已保持默认网段" >> release.txt
           fi
         else
-          echo "- 保持默认网段192.168.1.1" >> release.txt
+          echo "- 保持默认网段" >> release.txt
         fi
         if [ "${{ github.event.inputs.MODEL }}" = "all" ]; then
           echo "- 已输出各版本机型列表文件（MODEL=all）" >> release.txt

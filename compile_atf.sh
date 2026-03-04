@@ -8,7 +8,13 @@ OUTPUT_DIR="${OUTPUT_DIR:-output_bl2}"
 VERSION=${VERSION:-2025}
 
 if [ -z "$ATF_DIR" ]; then
-    if [ "$VERSION" = "2025" ]; then
+    if [ "$VERSION" = "2022" ]; then
+        ATF_DIR=atf-20220606-637ba581b
+    elif [ "$VERSION" = "2023" ]; then
+        ATF_DIR=atf-20231013-0ea67d76a
+    elif [ "$VERSION" = "2024" ]; then
+        ATF_DIR=atf-20240117-bacca82a8
+    elif [ "$VERSION" = "2025" ]; then
         ATF_DIR=atf-20250711
     elif [ "$VERSION" = "2026" ]; then
         ATF_DIR=atf-20260123

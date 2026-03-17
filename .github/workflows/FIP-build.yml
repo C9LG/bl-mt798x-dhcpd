@@ -19,7 +19,7 @@ on:
         default: 'cmcc_a10'
         type: string
       FIP_VERSION: 
-        description: 'FIP versions (comma-separated, e.g. 2022,2023,2024,2025,2026/all)'
+        description: 'FIP versions (comma-separated, e.g. 2022,2023,2024,2025,SP1,2026/all)'
         required: true
         default: '2025'
         type: string
@@ -29,7 +29,7 @@ on:
         default: 'https://github.com/Yuzhii0718/bl-mt798x-dhcpd'
         type: string
       REPO_BRANCH:
-        description: 'Repository branch (auto will pick master for <=2025, mtksoc-20260123 for 2026)'
+        description: 'Repository branch (auto: 2022~2024 -> old-version, 2025/SP1 -> master, 2026 -> mtksoc-20260123; all -> master)'
         required: true
         default: 'auto'
         type: string
@@ -170,47 +170,53 @@ jobs:
         REPO_BRANCH_IN="$REPO_BRANCH_INPUT"
 
 
-        # Auto-detect branch logic: if REPO_BRANCH=auto, then
-        # - if 2026 is included in the selected versions, use mtksoc-20260123
-        # - otherwise, use master
+        # Auto-detect branch logic:
+        # - 2022/2023/2024 -> old-version
+        # - 2025/SP1       -> master
+        # - 2026           -> mtksoc-20260123
+        # - all            -> master (later steps will only build versions that exist in this branch)
         FIP_INPUT="${{ github.event.inputs.FIP_VERSION }}"
         if [[ "$FIP_INPUT" =~ ^(.+)-(mt798[0-9]+)$ ]]; then
           FIP_INPUT="${BASH_REMATCH[1]}"
         fi
 
-        if [ "$FIP_INPUT" = "all" ]; then
-          VERSIONS_STR="2022,2023,2024,2025,2026"
-        else
-          VERSIONS_STR="$FIP_INPUT"
-        fi
-        VERSIONS_STR="$(echo "$VERSIONS_STR" | tr -d '[:space:]')"
-
-        has_2026=0
-        total=0
-        IFS=',' read -ra _VERS <<< "$VERSIONS_STR"
-        for v in "${_VERS[@]}"; do
-          [ -z "$v" ] && continue
-          total=$((total+1))
-          if [ "$v" = "2026" ]; then
-            has_2026=1
-          fi
-        done
-
         if [ -n "$REPO_BRANCH_IN" ] && [ "$REPO_BRANCH_IN" != "auto" ]; then
           REPO_REF="$REPO_BRANCH_IN"
         else
-          if [ "$has_2026" -eq 1 ] && [ "$total" -gt 1 ]; then
-            echo "Error: cannot auto-select a single branch when REPO_BRANCH=auto and both 2026 and other versions are selected." >&2
-            echo "Please either:" >&2
-            echo "  - Select only 2026 (or only <=2025), or" >&2
-            echo "  - Manually set REPO_BRANCH to a branch that contains the source for all selected versions." >&2
-            exit 1
-          fi
-
-          if [ "$has_2026" -eq 1 ]; then
-            REPO_REF="mtksoc-20260123"
-          else
+          if [ "$FIP_INPUT" = "all" ]; then
             REPO_REF="master"
+          else
+            VERSIONS_STR="$(echo "$FIP_INPUT" | tr -d '[:space:]')"
+            has_legacy=0
+            has_main=0
+            has_2026=0
+
+            IFS=',' read -ra _VERS <<< "$VERSIONS_STR"
+            for v in "${_VERS[@]}"; do
+              [ -z "$v" ] && continue
+              case "$v" in
+                2022|2023|2024) has_legacy=1 ;;
+                2025|SP1) has_main=1 ;;
+                2026) has_2026=1 ;;
+              esac
+            done
+
+            selected_groups=$((has_legacy + has_main + has_2026))
+            if [ "$selected_groups" -gt 1 ]; then
+              echo "Error: REPO_BRANCH=auto cannot map requested versions to a single source branch: $VERSIONS_STR" >&2
+              echo "Please either:" >&2
+              echo "  - Select versions from the same version group only, or" >&2
+              echo "  - Manually set REPO_BRANCH." >&2
+              exit 1
+            fi
+
+            if [ "$has_2026" -eq 1 ]; then
+              REPO_REF="mtksoc-20260123"
+            elif [ "$has_legacy" -eq 1 ]; then
+              REPO_REF="old-version"
+            else
+              REPO_REF="master"
+            fi
           fi
         fi
 
@@ -288,8 +294,8 @@ jobs:
 
         # Parse the list of versions to process based on FIP_INPUT
         if [ "$FIP_INPUT" = "all" ]; then
-          SUPPORTED_VERSIONS=("2022" "2023" "2024" "2025" "2026")
-          echo "Detected 'all', will parse: ${SUPPORTED_VERSIONS[*]}"
+          SUPPORTED_VERSIONS=("2022" "2023" "2024" "2025" "SP1" "2026")
+          echo "Detected 'all', will probe available versions in current branch from: ${SUPPORTED_VERSIONS[*]}"
         else
           IFS=',' read -ra SUPPORTED_VERSIONS <<< "$FIP_INPUT"
           echo "Will parse selected: ${SUPPORTED_VERSIONS[*]}"
@@ -349,6 +355,10 @@ jobs:
           read -r ATF_DIR UBOOT_DIR < <(version_to_dirs "$version")
           if [ -z "$ATF_DIR" ] || [ -z "$UBOOT_DIR" ]; then
             echo "Unknown version mapping: $version, skip"
+            continue
+          fi
+          if [ ! -d "$ATF_DIR" ] || [ ! -d "$UBOOT_DIR" ]; then
+            echo "Version $version not found in current branch (missing $ATF_DIR or $UBOOT_DIR), skipping"
             continue
           fi
           models=$(collect_models "$ATF_DIR" "$UBOOT_DIR" || true)
@@ -433,8 +443,8 @@ jobs:
 
         # Parse the list of versions to process based on FIP_INPUT
         if [ "$FIP_INPUT" = "all" ]; then
-          SUPPORTED_VERSIONS=("2022" "2023" "2024" "2025" "2026")
-          echo "Detected 'all', will build: ${SUPPORTED_VERSIONS[*]}"
+          SUPPORTED_VERSIONS=("2022" "2023" "2024" "2025" "SP1" "2026")
+          echo "Detected 'all', will build available versions in current branch from: ${SUPPORTED_VERSIONS[*]}"
         else
           IFS=',' read -ra SUPPORTED_VERSIONS <<< "$FIP_INPUT"
           echo "Will build selected: ${SUPPORTED_VERSIONS[*]}"

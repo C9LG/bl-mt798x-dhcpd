@@ -16,7 +16,7 @@ on:
       MODEL:
         description: 'Model selection'
         required: true
-        default: 'cmcc_a10'
+        default: 'jdcloud_re-cp-03'
         type: string
       FIP_VERSION: 
         description: 'FIP version selection ("all" option is only for single model builds)'
@@ -42,7 +42,7 @@ on:
       EXTRA_OPTION:
         description: 'Extra option'
         required: false
-        default: 'default'
+        default: 'multi_layout'
         type: choice
         options:
           - default

@@ -16,7 +16,7 @@ on:
       MODEL:
         description: 'Model selection (board name, "all", or "all-mt7981/7986/7987/7988")'
         required: true
-        default: 'all'
+        default: 'jdcloud_re-cp-03'
         type: string
       FIP_VERSION: 
         description: 'FIP version selection ("all" option is only for single model builds)'
